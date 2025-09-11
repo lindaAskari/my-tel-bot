@@ -14,7 +14,7 @@ bot = telebot.TeleBot(token=API_TOKEN)
 
 # تنظیمات کانال و ادمین
 CHANNEL_ID = -1003053257734  # جایگزین کنید با آیدی واقعی کانال
-ADMIN_CHAT_ID = 6020631201    # ✅ جایگزین کنید با آیدی عددی بهار بیجاری (از دستور /getid پیدا کنید)
+ADMIN_CHAT_ID = 6669708343    # ✅ جایگزین کنید با آیدی عددی بهار بیجاری (از دستور /getid پیدا کنید)
 
 # Define States
 STATE_NONE = 0
@@ -310,3 +310,4 @@ def get_chat_id(message):
     bot.reply_to(message, f"Chat ID: {message.chat.id}")
 
 bot.polling()
+
