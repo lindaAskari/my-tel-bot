@@ -53,7 +53,7 @@ def is_user_member(user_id):
 def send_welcome(message):
     user_id = message.from_user.id
     if is_user_member(user_id):
-        bot.send_message(message.chat.id, "سلام به ربات بافت مو بیجاری خوش آمدید! 🌿\nلطفاً یکی از گزینه‌ها رو انتخاب کنید:\n/book - رزرو نوبت\n/portfolio - نمونه کارها")
+        bot.send_message(message.chat.id, "سلام به ربات بافت مو بیجاری خوش آمدید! 💜\nلطفاً یکی از گزینه‌ها رو انتخاب کنید:\n/book - رزرو نوبت\n/portfolio - نمونه کارها")
     else:
         bot.send_message(message.chat.id, "لطفاً اول عضو کانال ما بشید تا بتونید از ربات استفاده کنید.")
 
@@ -81,7 +81,7 @@ def ask_date(message):
 
     user_data[user_id] = {'service': service}
     user_states[user_id] = STATE_ASKING_DATE
-    bot.send_message(message.chat.id, "تاریخ دلخواهتون رو به فرمت YYYY-MM-DD وارد کنید (مثال: 1404-06-25):")
+    bot.send_message(message.chat.id, "تاریخ دلخواهتون رو به فرمت YYYY-MM-DD وارد کنید (مثال: 10-02-1404):")
 
 # مرحله ۲: دریافت تاریخ (شمسی)
 @bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_DATE)
@@ -93,7 +93,7 @@ def ask_time_slot(message):  # ✅ نام اصلاح شده
         year, month, day = map(int, date_str.split('-'))
         jdatetime.date(year, month, day)
     except (ValueError, IndexError):
-        bot.send_message(message.chat.id, "فرمت تاریخ اشتباهه. لطفاً به فرمت YYYY-MM-DD وارد کنید (مثال: 1404-06-25).")
+        bot.send_message(message.chat.id, "فرمت تاریخ اشتباهه. لطفاً به فرمت YYYY-MM-DD وارد کنید (مثال: 10-02-1404).")
         return
 
     user_data[user_id]['date'] = date_str
@@ -163,3 +163,4 @@ def show_portfolio(message):
     bot.send_message(message.chat.id, "در حال حاضر نمونه کارها در حال بارگذاری هستند. به زودی اضافه می‌شن!")
 
 bot.polling()
+
