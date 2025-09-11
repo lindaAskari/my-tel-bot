@@ -10,7 +10,6 @@ init_db()
 API_TOKEN = os.getenv('API_TOKEN')
 bot = telebot.TeleBot(token=API_TOKEN)
 
-# جایگزین کنید با آیدی واقعی کانال بعد از اضافه کردن ربات به کانال
 CHANNEL_ID = -1003053257734
 
 # Define States
@@ -18,20 +17,18 @@ STATE_NONE = 0
 STATE_ASKING_SERVICE = 1
 STATE_ASKING_DATE = 2
 STATE_ASKING_TIME = 3
-STATE_ASKING_NAME_PHONE = 4
+STATE_ASKING_NAME = 4      # فقط اسم
+STATE_ASKING_PHONE = 5     # فقط شماره
 
-# In-memory state storage
 user_states = {}
 user_data = {}
 
-# List of Services
 SERVICES = [
     "بافت مو",
     "کوتاهی مو",
     "مشاوره رایگان"
 ]
 
-# Available time slots
 TIME_SLOTS = [
     "10:00 - 12:00",
     "12:00 - 14:00",
@@ -81,11 +78,11 @@ def ask_date(message):
 
     user_data[user_id] = {'service': service}
     user_states[user_id] = STATE_ASKING_DATE
-    bot.send_message(message.chat.id, "تاریخ دلخواهتون رو به فرمت YYYY-MM-DD وارد کنید (مثال: 10-02-1404):")
+    bot.send_message(message.chat.id, "تاریخ دلخواهتون رو به فرمت YYYY-MM-DD وارد کنید (مثال: 1404-06-25):")
 
 # مرحله ۲: دریافت تاریخ (شمسی)
 @bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_DATE)
-def ask_time_slot(message):  # ✅ نام اصلاح شده
+def ask_time_slot(message):
     user_id = message.from_user.id
     date_str = message.text.strip()
 
@@ -93,7 +90,7 @@ def ask_time_slot(message):  # ✅ نام اصلاح شده
         year, month, day = map(int, date_str.split('-'))
         jdatetime.date(year, month, day)
     except (ValueError, IndexError):
-        bot.send_message(message.chat.id, "فرمت تاریخ اشتباهه. لطفاً به فرمت YYYY-MM-DD وارد کنید (مثال: 10-02-1404).")
+        bot.send_message(message.chat.id, "فرمت تاریخ اشتباهه. لطفاً به فرمت YYYY-MM-DD وارد کنید (مثال: 1404-06-25).")
         return
 
     user_data[user_id]['date'] = date_str
@@ -104,9 +101,9 @@ def ask_time_slot(message):  # ✅ نام اصلاح شده
         markup.add(slot)
     bot.send_message(message.chat.id, "ساعت دلخواهتون رو انتخاب کنید:", reply_markup=markup)
 
-# مرحله ۳: دریافت ساعت
+# مرحله ۳: دریافت ساعت → بعدش می‌ریم سراغ اسم
 @bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_TIME)
-def ask_name_and_phone(message):  # ✅ نام اصلاح شده
+def ask_name(message):
     user_id = message.from_user.id
     time_slot = message.text
     if time_slot not in TIME_SLOTS:
@@ -114,22 +111,37 @@ def ask_name_and_phone(message):  # ✅ نام اصلاح شده
         return
 
     user_data[user_id]['time_slot'] = time_slot
-    user_states[user_id] = STATE_ASKING_NAME_PHONE
-    bot.send_message(message.chat.id, "لطفاً اسم و شماره تماس خودتون رو به این صورت وارد کنید:\nمثال: نرگس - 09123456789\n(لطفاً دقیقاً با این فرمت)")
+    user_states[user_id] = STATE_ASKING_NAME
+    bot.send_message(message.chat.id, "لطفاً *اسم و فامیل* خودتون رو وارد کنید:")
 
-# مرحله ۴: دریافت نام و شماره و ثبت نهایی
-@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_NAME_PHONE)
+# مرحله ۴: دریافت اسم → بعدش می‌ریم سراغ شماره
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_NAME)
+def ask_phone(message):
+    user_id = message.from_user.id
+    name = message.text.strip()
+    if not name:
+        bot.send_message(message.chat.id, "لطفاً یک اسم معتبر وارد کنید.")
+        return
+
+    user_data[user_id]['name'] = name
+    user_states[user_id] = STATE_ASKING_PHONE
+    bot.send_message(message.chat.id, "حالا لطفاً *شماره تلفن* خودتون رو وارد کنید (مثال: 09123456789):")
+
+# مرحله ۵: دریافت شماره و ثبت نهایی
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_PHONE)
 def finalize_booking(message):
     user_id = message.from_user.id
-    try:
-        name, phone = message.text.split(' - ')
-    except ValueError:
-        bot.send_message(message.chat.id, "فرمت اشتباهه! لطفاً مثل مثال وارد کنید: نرگس - 09123456789")
+    phone = message.text.strip()
+
+    # اعتبارسنجی ساده شماره موبایل
+    if not phone.startswith('09') or len(phone) != 11 or not phone.isdigit():
+        bot.send_message(message.chat.id, "شماره تلفن اشتباهه! لطفاً یه شماره معتبر وارد کنید (مثال: 09123456789).")
         return
 
     service = user_data[user_id]['service']
     date = user_data[user_id]['date']
     time_slot = user_data[user_id]['time_slot']
+    name = user_data[user_id]['name']
 
     add_reservation(user_id, name, phone, service, date, time_slot)
 
@@ -163,4 +175,3 @@ def show_portfolio(message):
     bot.send_message(message.chat.id, "در حال حاضر نمونه کارها در حال بارگذاری هستند. به زودی اضافه می‌شن!")
 
 bot.polling()
-
