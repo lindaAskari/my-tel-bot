@@ -53,7 +53,7 @@ def is_user_member(user_id):
 def send_welcome(message):
     user_id = message.from_user.id
     if is_user_member(user_id):
-        bot.send_message(message.chat.id, "سلام به ربات بافت مو بیجاری خوش آمدید! 💜\nلطفاً یکی از گزینه‌ها رو انتخاب کنید:\n/book - رزرو نوبت\n/portfolio - نمونه کارها")
+        bot.send_message(message.chat.id, "سلام به ربات بافت مو بیجاری خوش آمدید! 🌿\nلطفاً یکی از گزینه‌ها رو انتخاب کنید:\n/book - رزرو نوبت\n/portfolio - نمونه کارها")
     else:
         bot.send_message(message.chat.id, "لطفاً اول عضو کانال ما بشید تا بتونید از ربات استفاده کنید.")
 
@@ -68,4 +68,98 @@ def start_booking(message):
     markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
     for service in SERVICES:
         markup.add(service)
-    bot.send_message(message.chat.id, "ل
+    bot.send_message(message.chat.id, "لطفاً سرویس مورد نظرتون رو انتخاب کنید:", reply_markup=markup)
+
+# مرحله ۱: دریافت سرویس
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_SERVICE)
+def ask_date(message):
+    user_id = message.from_user.id
+    service = message.text
+    if service not in SERVICES:
+        bot.send_message(message.chat.id, "لطفاً یکی از گزینه‌های داده شده رو انتخاب کنید.")
+        return
+
+    user_data[user_id] = {'service': service}
+    user_states[user_id] = STATE_ASKING_DATE
+    bot.send_message(message.chat.id, "تاریخ دلخواهتون رو به فرمت YYYY-MM-DD وارد کنید (مثال: 1404-06-25):")
+
+# مرحله ۲: دریافت تاریخ (شمسی)
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_DATE)
+def ask_time_slot(message):  # ✅ نام اصلاح شده
+    user_id = message.from_user.id
+    date_str = message.text.strip()
+
+    try:
+        year, month, day = map(int, date_str.split('-'))
+        jdatetime.date(year, month, day)
+    except (ValueError, IndexError):
+        bot.send_message(message.chat.id, "فرمت تاریخ اشتباهه. لطفاً به فرمت YYYY-MM-DD وارد کنید (مثال: 1404-06-25).")
+        return
+
+    user_data[user_id]['date'] = date_str
+    user_states[user_id] = STATE_ASKING_TIME
+
+    markup = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    for slot in TIME_SLOTS:
+        markup.add(slot)
+    bot.send_message(message.chat.id, "ساعت دلخواهتون رو انتخاب کنید:", reply_markup=markup)
+
+# مرحله ۳: دریافت ساعت
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_TIME)
+def ask_name_and_phone(message):  # ✅ نام اصلاح شده
+    user_id = message.from_user.id
+    time_slot = message.text
+    if time_slot not in TIME_SLOTS:
+        bot.send_message(message.chat.id, "لطفاً یکی از بازه‌های زمانی داده شده رو انتخاب کنید.")
+        return
+
+    user_data[user_id]['time_slot'] = time_slot
+    user_states[user_id] = STATE_ASKING_NAME_PHONE
+    bot.send_message(message.chat.id, "لطفاً اسم و شماره تماس خودتون رو به این صورت وارد کنید:\nمثال: نرگس - 09123456789\n(لطفاً دقیقاً با این فرمت)")
+
+# مرحله ۴: دریافت نام و شماره و ثبت نهایی
+@bot.message_handler(func=lambda message: user_states.get(message.from_user.id) == STATE_ASKING_NAME_PHONE)
+def finalize_booking(message):
+    user_id = message.from_user.id
+    try:
+        name, phone = message.text.split(' - ')
+    except ValueError:
+        bot.send_message(message.chat.id, "فرمت اشتباهه! لطفاً مثل مثال وارد کنید: نرگس - 09123456789")
+        return
+
+    service = user_data[user_id]['service']
+    date = user_data[user_id]['date']
+    time_slot = user_data[user_id]['time_slot']
+
+    add_reservation(user_id, name, phone, service, date, time_slot)
+
+    confirmation_msg = f"""
+✅ رزرو شما با موفقیت ثبت شد!
+
+📅 تاریخ: {date} (شمسی)
+⏰ ساعت: {time_slot}
+💇‍♀️ سرویس: {service}
+👤 نام: {name}
+📞 شماره تماس: {phone}
+📍 آدرس: خیابان اصلی، کوچه فلان، سالن بیجاری
+📞 برای لغو یا تغییر نوبت، حداقل ۲۴ ساعت قبل تماس بگیرید.
+    """
+    bot.send_message(message.chat.id, confirmation_msg)
+
+    user_states[user_id] = STATE_NONE
+    if user_id in user_data:
+        del user_data[user_id]
+
+@bot.message_handler(commands=['getid'])
+def get_chat_id(message):
+    bot.reply_to(message, f"Chat ID: {message.chat.id}")
+
+@bot.message_handler(commands=['portfolio'])
+def show_portfolio(message):
+    user_id = message.from_user.id
+    if not is_user_member(user_id):
+        bot.send_message(message.chat.id, "لطفاً اول عضو کانال ما بشید.")
+        return
+    bot.send_message(message.chat.id, "در حال حاضر نمونه کارها در حال بارگذاری هستند. به زودی اضافه می‌شن!")
+
+bot.polling()
