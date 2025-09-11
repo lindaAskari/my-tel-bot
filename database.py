@@ -6,7 +6,7 @@ def init_db():
     conn = sqlite3.connect('reservations.db')
     cursor = conn.cursor()
     
-    # جدول رزروها (همون قبلی)
+    # جدول رزروها
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS reservations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,13 +21,13 @@ def init_db():
         )
     ''')
 
-    # ✅ جدول جدید: نمونه کارها (Portfolio)
+    # جدول نمونه کارها
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS portfolio (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            category TEXT NOT NULL,      -- دسته‌بندی: "بافت هلندی", "بافت خورشیدی", ...
-            image_path TEXT NOT NULL,    -- مسیر فایل عکس (مثلاً "static/portfolio/holland_1.jpg")
-            caption TEXT,                -- کپشن: "بافت هلندی برای موی بلند — مشتری: مریم جان 💖"
+            category TEXT NOT NULL,
+            image_path TEXT NOT NULL,
+            caption TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -35,9 +35,24 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ... (بقیه توابع add_reservation و get_user_reservations بدون تغییر می‌مونن)
+def add_reservation(user_id, name, phone, service, date, time_slot):
+    conn = sqlite3.connect('reservations.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO reservations (user_id, name, phone, service, date, time_slot)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, name, phone, service, date, time_slot))
+    conn.commit()
+    conn.close()
 
-# ✅ تابع جدید: افزودن نمونه کار
+def get_user_reservations(user_id):
+    conn = sqlite3.connect('reservations.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM reservations WHERE user_id = ?', (user_id,))
+    reservations = cursor.fetchall()
+    conn.close()
+    return reservations
+
 def add_portfolio_item(category, image_path, caption=""):
     conn = sqlite3.connect('reservations.db')
     cursor = conn.cursor()
@@ -48,7 +63,6 @@ def add_portfolio_item(category, image_path, caption=""):
     conn.commit()
     conn.close()
 
-# ✅ تابع جدید: دریافت همه دسته‌بندی‌های منحصر به فرد
 def get_all_categories():
     conn = sqlite3.connect('reservations.db')
     cursor = conn.cursor()
@@ -57,11 +71,10 @@ def get_all_categories():
     conn.close()
     return categories
 
-# ✅ تابع جدید: دریافت همه نمونه کارهای یک دسته‌بندی
 def get_portfolio_by_category(category):
     conn = sqlite3.connect('reservations.db')
     cursor = conn.cursor()
     cursor.execute('SELECT image_path, caption FROM portfolio WHERE category = ?', (category,))
-    items = cursor.fetchall()  # لیستی از تاپل‌ها: [('path1.jpg', 'caption1'), ...]
+    items = cursor.fetchall()
     conn.close()
     return items
